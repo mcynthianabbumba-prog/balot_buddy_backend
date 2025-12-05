@@ -262,3 +262,68 @@ exports.getAllNominations = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch nominations' });
   }
 };
+
+// Approve nomination (Officer only)
+exports.approveNomination = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const officerId = req.user.id;
+
+    // Check if nomination exists
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        position: {
+          select: {
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Nomination not found' });
+    }
+
+    if (candidate.status === 'APPROVED') {
+      return res.status(400).json({ error: 'Nomination is already approved' });
+    }
+
+    // Update status
+    const updated = await prisma.candidate.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        reason: null, // Clear any previous rejection reason
+      },
+    });
+
+    // Log audit
+    await logAudit({
+      actorType: 'officer',
+      actorId: officerId,
+      action: 'APPROVE_NOMINATION',
+      entity: 'candidate',
+      entityId: id,
+      payload: {
+        candidateName: candidate.name,
+        positionName: candidate.position.name,
+        candidateEmail: candidate.user.email,
+      },
+    });
+
+    res.json({
+      message: 'Nomination approved successfully',
+      candidate: updated,
+    });
+  } catch (error) {
+    console.error('Approve nomination error:', error);
+    res.status(500).json({ error: 'Failed to approve nomination' });
+  }
+};
