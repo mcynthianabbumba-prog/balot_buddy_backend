@@ -226,7 +226,6 @@ exports.verifyResetOTP = async (req, res) => {
   }
 };
 
-
 /**
  * Reset password
  * 
@@ -313,6 +312,10 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ error: 'Failed to reset password' });
   }
 };
+
+
+
+
 
 
 
