@@ -22,6 +22,8 @@ const storage = multer.diskStorage({
   },
 });
 
+
+
 const upload = multer({
   storage: storage,
   limits: {
@@ -73,7 +75,6 @@ exports.submitNomination = async (req, res) => {
         program: true,
       },
     });
-
     if (!user) {
       return res.status(404).json({ error: 'User account not found' });
     }
@@ -101,7 +102,6 @@ exports.submitNomination = async (req, res) => {
         nominationCloses: position.nominationCloses,
       });
     }
-
     // Check if candidate already submitted for this position
     const existingNomination = await prisma.candidate.findUnique({
       where: {
@@ -149,7 +149,7 @@ exports.submitNomination = async (req, res) => {
       },
     });
 
-    // Log audit
+        // Log audit
     await logAudit({
       actorType: 'candidate',
       actorId: userId,
@@ -575,6 +575,3 @@ exports.deleteAllCandidates = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete all candidates' });
   }
 };
-
-
-
