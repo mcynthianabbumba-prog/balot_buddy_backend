@@ -102,3 +102,49 @@ exports.submitNomination = async (req, res) => {
         nominationCloses: position.nominationCloses,
       });
     }
+    // Check if candidate already submitted for this position
+    const existingNomination = await prisma.candidate.findUnique({
+      where: {
+        positionId_userId: {
+          positionId,
+          userId,
+        },
+      },
+    });
+
+    if (existingNomination) {
+      return res.status(400).json({ error: 'You have already submitted a nomination for this position' });
+    }
+
+    // Validate that required files are uploaded
+    if (!req.files?.manifesto?.[0]) {
+      return res.status(400).json({ error: 'Manifesto PDF is required' });
+    }
+    if (!req.files?.photo?.[0]) {
+      return res.status(400).json({ error: 'Photo is required' });
+    }
+
+    // Get file URLs from uploaded files
+    const manifestoUrl = `/uploads/${req.files.manifesto[0].filename}`;
+    const photoUrl = `/uploads/${req.files.photo[0].filename}`;
+
+    // Create nomination using user's name and program from their account
+    const candidate = await prisma.candidate.create({
+      data: {
+        positionId,
+        userId,
+        name: user.name,
+        program: user.program,
+        manifestoUrl,
+        photoUrl,
+        status: 'SUBMITTED',
+      },
+      include: {
+        position: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
