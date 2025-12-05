@@ -21,3 +21,31 @@ const storage = multer.diskStorage({
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   },
 });
+
+
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'manifesto') {
+      // Only PDF for manifesto
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Manifesto must be a PDF file'));
+      }
+    } else if (file.fieldname === 'photo') {
+      // Images for photo
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Photo must be an image file'));
+      }
+    } else {
+      cb(null, true);
+    }
+  },
+});
