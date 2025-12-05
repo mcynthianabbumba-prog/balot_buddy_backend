@@ -62,7 +62,7 @@ app.use('/api/voters', require('./routes/voters.routes')); // Voter management
 app.use('/api/verify', require('./routes/verification.routes'));
 app.use('/api/vote', require('./routes/votes.routes'));
 app.use('/api/reports', require('./routes/reports.routes'));
-app.use('/api/email', require('./routes/email-test.routes')); // Email test endpoint
+// app.use('/api/email', require('./routes/email-test.routes')); // Email test endpoint
 
 // Health check
 app.get('/api/health', (req, res) => {
