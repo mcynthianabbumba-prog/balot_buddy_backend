@@ -327,3 +327,158 @@ exports.approveNomination = async (req, res) => {
     res.status(500).json({ error: 'Failed to approve nomination' });
   }
 };
+
+// Reject nomination (Officer only)
+exports.rejectNomination = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const officerId = req.user.id;
+
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    // Check if nomination exists
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        position: {
+          select: {
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Nomination not found' });
+    }
+
+    if (candidate.status === 'REJECTED') {
+      return res.status(400).json({ error: 'Nomination is already rejected' });
+    }
+
+    // Update status
+    const updated = await prisma.candidate.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        reason: reason.trim(),
+      },
+    });
+
+    // Log audit
+    await logAudit({
+      actorType: 'officer',
+      actorId: officerId,
+      action: 'REJECT_NOMINATION',
+      entity: 'candidate',
+      entityId: id,
+      payload: {
+        candidateName: candidate.name,
+        positionName: candidate.position.name,
+        candidateEmail: candidate.user.email,
+        reason: reason.trim(),
+      },
+    });
+
+    res.json({
+      message: 'Nomination rejected successfully',
+      candidate: updated,
+    });
+  } catch (error) {
+    console.error('Reject nomination error:', error);
+    res.status(500).json({ error: 'Failed to reject nomination' });
+  }
+};
+
+// Delete candidate (Admin only)
+exports.deleteCandidate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+
+    // Check if candidate exists
+    const candidate = await prisma.candidate.findUnique({
+      where: { id },
+      include: {
+        position: {
+          select: {
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            votes: true,
+          },
+        },
+      },
+    });
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+
+    // Check if candidate has votes
+    if (candidate._count.votes > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete candidate with existing votes. Delete all votes first.' 
+      });
+    }
+
+    // Delete candidate files if they exist
+    if (candidate.manifestoUrl) {
+      try {
+        const manifestoPath = path.join(__dirname, '../../', candidate.manifestoUrl);
+        await fs.unlink(manifestoPath);
+      } catch (fileError) {
+        console.warn('Failed to delete manifesto file:', fileError);
+      }
+    }
+    if (candidate.photoUrl) {
+      try {
+        const photoPath = path.join(__dirname, '../../', candidate.photoUrl);
+        await fs.unlink(photoPath);
+      } catch (fileError) {
+        console.warn('Failed to delete photo file:', fileError);
+      }
+    }
+
+    // Delete candidate
+    await prisma.candidate.delete({
+      where: { id },
+    });
+
+    // Log audit
+    await logAudit({
+      actorType: 'admin',
+      actorId: adminId,
+      action: 'DELETE_CANDIDATE',
+      entity: 'candidate',
+      entityId: id,
+      payload: {
+        candidateName: candidate.name,
+        positionName: candidate.position.name,
+        candidateEmail: candidate.user.email,
+      },
+    });
+
+    res.json({ message: 'Candidate deleted successfully' });
+  } catch (error) {
+    console.error('Delete candidate error:', error);
+    res.status(500).json({ error: 'Failed to delete candidate' });
+  }
+};
