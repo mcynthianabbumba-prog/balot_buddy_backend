@@ -49,3 +49,9 @@ const upload = multer({
     }
   },
 });
+
+// Middleware for file uploads
+exports.uploadFiles = upload.fields([
+  { name: 'manifesto', maxCount: 1 },
+  { name: 'photo', maxCount: 1 },
+]);
