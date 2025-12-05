@@ -75,3 +75,30 @@ exports.submitNomination = async (req, res) => {
         program: true,
       },
     });
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found' });
+    }
+
+    if (!user.name || !user.program) {
+      return res.status(400).json({ 
+        error: 'Your account is missing name or program information. Please update your profile.' 
+      });
+    }
+
+    // Check if position exists and nomination window is open
+    const position = await prisma.position.findUnique({
+      where: { id: positionId },
+    });
+
+    if (!position) {
+      return res.status(404).json({ error: 'Position not found' });
+    }
+
+    const now = new Date();
+    if (now < position.nominationOpens || now > position.nominationCloses) {
+      return res.status(400).json({ 
+        error: 'Nomination window is closed',
+        nominationOpens: position.nominationOpens,
+        nominationCloses: position.nominationCloses,
+      });
+    }
