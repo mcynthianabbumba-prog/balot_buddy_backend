@@ -55,3 +55,23 @@ exports.uploadFiles = upload.fields([
   { name: 'manifesto', maxCount: 1 },
   { name: 'photo', maxCount: 1 },
 ]);
+
+// Submit nomination (Candidate)
+exports.submitNomination = async (req, res) => {
+  try {
+    const { positionId } = req.body;
+    const userId = req.user.id;
+
+    // Validation
+    if (!positionId) {
+      return res.status(400).json({ error: 'Position is required' });
+    }
+
+    // Fetch user's name and program from their account
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        program: true,
+      },
+    });
