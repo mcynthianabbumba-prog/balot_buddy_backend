@@ -204,3 +204,61 @@ exports.getMyNominations = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch nominations' });
   }
 };
+
+// Get all nominations (Officer/Admin)
+exports.getAllNominations = async (req, res) => {
+  try {
+    const { status, positionId } = req.query;
+
+    const where = {};
+    if (status) {
+      where.status = status;
+    }
+    if (positionId) {
+      where.positionId = positionId;
+    }
+
+    const nominations = await prisma.candidate.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        program: true,
+        photoUrl: true,
+        manifestoUrl: true,
+        status: true,
+        reason: true,
+        createdAt: true,
+        updatedAt: true,
+        position: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            regNo: true,
+            program: true,
+          },
+        },
+        _count: {
+          select: {
+            votes: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(nominations);
+  } catch (error) {
+    console.error('Get all nominations error:', error);
+    res.status(500).json({ error: 'Failed to fetch nominations' });
+  }
+};
