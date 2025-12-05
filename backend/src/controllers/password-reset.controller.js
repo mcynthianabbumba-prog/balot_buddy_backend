@@ -227,10 +227,92 @@ exports.verifyResetOTP = async (req, res) => {
 };
 
 
+/**
+ * Reset password
+ * 
+ * Flow:
+ * 1. Candidate enters reset token and new password
+ * 2. System verifies reset token
+ * 3. Updates password
+ * 4. Marks reset as consumed
+ */
+exports.resetPassword = async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
 
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ error: 'Reset token and new password are required' });
+    }
 
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
 
+    // Find password reset record
+    const passwordReset = await prisma.passwordReset.findUnique({
+      where: { id: resetToken },
+      include: {
+        user: true,
+      },
+    });
 
+    if (!passwordReset) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Check if already consumed
+    if (passwordReset.consumedAt) {
+      return res.status(400).json({ error: 'This password reset link has already been used' });
+    }
+
+    // Check if OTP was verified
+    if (!passwordReset.verifiedAt) {
+      return res.status(400).json({ error: 'OTP not verified. Please verify OTP first.' });
+    }
+
+    // Check if expired
+    if (new Date() > passwordReset.expiresAt) {
+      return res.status(400).json({ error: 'Password reset code has expired. Please request a new one.' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update user password
+    await prisma.user.update({
+      where: { id: passwordReset.userId },
+      data: { password: hashedPassword },
+    });
+
+    // Mark reset as consumed
+    await prisma.passwordReset.update({
+      where: { id: passwordReset.id },
+      data: {
+        consumedAt: new Date(),
+        resetAt: new Date(),
+      },
+    });
+
+    // Log audit
+    await logAudit({
+      actorType: 'candidate',
+      actorId: passwordReset.userId,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entity: 'user',
+      entityId: passwordReset.userId,
+      payload: {
+        email: passwordReset.user.email,
+      },
+    });
+
+    res.json({
+      message: 'Password reset successfully. You can now log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
 
 
 
