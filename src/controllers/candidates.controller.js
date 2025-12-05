@@ -173,3 +173,34 @@ exports.submitNomination = async (req, res) => {
     res.status(500).json({ error: 'Failed to submit nomination' });
   }
 };
+
+// Get candidate's nominations
+exports.getMyNominations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const nominations = await prisma.candidate.findMany({
+      where: { userId },
+      include: {
+        position: {
+          select: {
+            id: true,
+            name: true,
+            nominationOpens: true,
+            nominationCloses: true,
+            votingOpens: true,
+            votingCloses: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(nominations);
+  } catch (error) {
+    console.error('Get nominations error:', error);
+    res.status(500).json({ error: 'Failed to fetch nominations' });
+  }
+};
