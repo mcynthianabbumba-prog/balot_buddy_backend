@@ -148,3 +148,28 @@ exports.submitNomination = async (req, res) => {
         },
       },
     });
+
+        // Log audit
+    await logAudit({
+      actorType: 'candidate',
+      actorId: userId,
+      action: 'SUBMIT_NOMINATION',
+      entity: 'candidate',
+      entityId: candidate.id,
+      payload: { 
+        positionId, 
+        positionName: position.name, 
+        name: user.name, 
+        program: user.program 
+      },
+    });
+
+    res.status(201).json({
+      message: 'Nomination submitted successfully',
+      candidate,
+    });
+  } catch (error) {
+    console.error('Submit nomination error:', error);
+    res.status(500).json({ error: 'Failed to submit nomination' });
+  }
+};
