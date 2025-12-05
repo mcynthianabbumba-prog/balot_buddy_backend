@@ -132,6 +132,101 @@ exports.requestPasswordReset = async (req, res) => {
   }
 };
 
+/**
+ * Verify password reset OTP
+ * 
+ * Flow:
+ * 1. Candidate enters email and OTP
+ * 2. System verifies OTP
+ * 3. Returns success with reset token
+ */
+exports.verifyResetOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Invalid email or OTP' });
+    }
+
+    // Only allow for CANDIDATE role
+    if (user.role !== 'CANDIDATE') {
+      return res.status(403).json({ error: 'Password reset is only available for candidates' });
+    }
+
+    // Find most recent unverified password reset
+    const passwordReset = await prisma.passwordReset.findFirst({
+      where: {
+        userId: user.id,
+        verifiedAt: null,
+        consumedAt: null,
+      },
+      orderBy: {
+        issuedAt: 'desc',
+      },
+    });
+
+    if (!passwordReset) {
+      return res.status(400).json({ error: 'No password reset request found. Please request a new code.' });
+    }
+
+    // Check if OTP is expired
+    if (new Date() > passwordReset.expiresAt) {
+      return res.status(400).json({ error: 'Password reset code has expired. Please request a new one.' });
+    }
+
+    // Verify OTP
+    const validOTP = await bcrypt.compare(otp, passwordReset.otpHash);
+    if (!validOTP) {
+      return res.status(400).json({ error: 'Invalid OTP code' });
+    }
+
+    // Mark OTP as verified
+    await prisma.passwordReset.update({
+      where: { id: passwordReset.id },
+      data: {
+        verifiedAt: new Date(),
+      },
+    });
+
+    // Generate reset token (for frontend to use in next step)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Store reset token (we'll use the passwordReset id as the token identifier)
+    // In a production system, you might want to store this in a separate table
+    // For simplicity, we'll use the passwordReset id as the token
+
+    // Log audit
+    await logAudit({
+      actorType: 'candidate',
+      actorId: user.id,
+      action: 'PASSWORD_RESET_OTP_VERIFIED',
+      entity: 'password_reset',
+      entityId: passwordReset.id,
+      payload: {
+        email: user.email,
+      },
+    });
+
+    res.json({
+      message: 'OTP verified successfully. You can now reset your password.',
+      resetToken: passwordReset.id, // Use the ID as the reset token
+    });
+  } catch (error) {
+    console.error('Verify reset OTP error:', error);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+};
+
+
 
 
 
