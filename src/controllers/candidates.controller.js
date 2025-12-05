@@ -482,3 +482,96 @@ exports.deleteCandidate = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete candidate' });
   }
 };
+
+// Delete all candidates (Admin only)
+exports.deleteAllCandidates = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+
+    // Get all candidates with their file paths
+    const candidates = await prisma.candidate.findMany({
+      select: {
+        id: true,
+        manifestoUrl: true,
+        photoUrl: true,
+        name: true,
+      },
+    });
+
+    // Delete files
+    for (const candidate of candidates) {
+      if (candidate.manifestoUrl) {
+        try {
+          const manifestoPath = path.join(__dirname, '../../', candidate.manifestoUrl);
+          await fs.unlink(manifestoPath);
+        } catch (fileError) {
+          console.warn(`Failed to delete manifesto for ${candidate.name}:`, fileError);
+        }
+      }
+      if (candidate.photoUrl) {
+        try {
+          const photoPath = path.join(__dirname, '../../', candidate.photoUrl);
+          await fs.unlink(photoPath);
+        } catch (fileError) {
+          console.warn(`Failed to delete photo for ${candidate.name}:`, fileError);
+        }
+      }
+    }
+
+    // Get candidates with votes to exclude them from deletion
+    const candidatesWithVotes = await prisma.candidate.findMany({
+      where: {
+        votes: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const candidatesWithVotesIds = candidatesWithVotes.map(c => c.id);
+
+    // Delete only candidates without votes
+    const result = await prisma.candidate.deleteMany({
+      where: {
+        id: {
+          notIn: candidatesWithVotesIds.length > 0 ? candidatesWithVotesIds : [],
+        },
+      },
+    });
+
+    // Log audit only if candidates were actually deleted
+    if (result.count > 0) {
+      await logAudit({
+        actorType: 'admin',
+        actorId: adminId,
+        action: 'DELETE_ALL_CANDIDATES',
+        entity: 'candidate',
+        payload: {
+          candidatesDeleted: result.count,
+          candidatesWithVotesSkipped: candidatesWithVotes.length,
+          reason: 'Admin requested bulk deletion of all candidates. Candidates with votes were skipped.',
+        },
+      });
+    }
+
+    let message = 'All candidates deleted successfully';
+    if (candidatesWithVotes.length > 0 && result.count > 0) {
+      message = `${result.count} candidate(s) deleted. ${candidatesWithVotes.length} candidate(s) with votes were skipped.`;
+    } else if (candidatesWithVotes.length > 0 && result.count === 0) {
+      message = `No candidates deleted. All ${candidatesWithVotes.length} candidate(s) have votes. Delete votes first.`;
+    } else if (result.count === 0) {
+      message = 'No candidates found to delete';
+    }
+
+    res.json({
+      message,
+      deletedCount: result.count,
+      skippedCount: candidatesWithVotes.length,
+    });
+  } catch (error) {
+    console.error('Delete all candidates error:', error);
+    res.status(500).json({ error: 'Failed to delete all candidates' });
+  }
+};
