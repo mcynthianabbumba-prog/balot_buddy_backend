@@ -236,7 +236,7 @@ exports.activateUser = async (req, res) => {
       return res.status(400).json({ error: 'Cannot activate/deactivate admin users' });
     }
 
-    // Update status to ACTIVE
+     // Update status to ACTIVE
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
