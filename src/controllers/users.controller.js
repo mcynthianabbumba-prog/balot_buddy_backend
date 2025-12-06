@@ -217,8 +217,7 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete user' });
   }
 };
-
-// Activate user (Admin only)
+  // Activate user (Admin only)
 exports.activateUser = async (req, res) => {
   try {
     const { id } = req.params;
