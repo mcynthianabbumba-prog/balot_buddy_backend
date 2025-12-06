@@ -266,7 +266,7 @@ exports.activateUser = async (req, res) => {
       },
     });
 
-    res.json({
+   res.json({
       message: 'User activated successfully',
       user: updatedUser,
     });
