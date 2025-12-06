@@ -251,7 +251,7 @@ exports.activateUser = async (req, res) => {
       },
     });
 
-    // Log audit
+      // Log audit
     await logAudit({
       actorType: 'admin',
       actorId: req.user.id,
