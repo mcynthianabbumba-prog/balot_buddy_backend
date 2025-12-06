@@ -43,3 +43,51 @@ exports.getAuditLog = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch audit log' });
   }
 };
+// Get turnout report with detailed breakdown
+exports.getTurnout = async (req, res) => {
+  try {
+    const totalVoters = await prisma.eligibleVoter.count({
+      where: { status: 'ELIGIBLE' },
+    });
+
+    const verifiedVoters = await prisma.verification.count({
+      where: { verifiedAt: { not: null } },
+    });
+
+    const votesCast = await prisma.ballot.count({
+      where: { status: 'CONSUMED' },
+    });
+
+    const ballotsIssued = await prisma.ballot.count();
+
+    const turnout = totalVoters > 0 ? (votesCast / totalVoters) * 100 : 0;
+    const verificationRate =
+      totalVoters > 0 ? (verifiedVoters / totalVoters) * 100 : 0;
+    const ballotUsageRate =
+      ballotsIssued > 0 ? (votesCast / ballotsIssued) * 100 : 0;
+    const nonVoters = totalVoters - votesCast;
+    const nonVoterPercentage =
+      totalVoters > 0 ? (nonVoters / totalVoters) * 100 : 0;
+
+    res.json({
+      totalVoters,
+      verifiedVoters,
+      votesCast,
+      ballotsIssued,
+      nonVoters,
+      turnout: parseFloat(turnout.toFixed(2)),
+      verificationRate: parseFloat(verificationRate.toFixed(2)),
+      ballotUsageRate: parseFloat(ballotUsageRate.toFixed(2)),
+      nonVoterPercentage: parseFloat(nonVoterPercentage.toFixed(2)),
+      breakdown: {
+        voted: votesCast,
+        notVoted: nonVoters,
+        verified: verifiedVoters,
+        notVerified: totalVoters - verifiedVoters,
+      },
+    });
+  } catch (error) {
+    console.error('Get turnout error:', error);
+    res.status(500).json({ error: 'Failed to fetch turnout report' });
+  }
+};
