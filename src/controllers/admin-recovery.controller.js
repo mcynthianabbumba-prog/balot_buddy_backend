@@ -24,7 +24,7 @@ exports.recoverAdmin = async (req, res) => {
     // Get recovery token from .env
     const validRecoveryToken = process.env.ADMIN_RECOVERY_TOKEN || 'DEFAULT_RECOVERY_TOKEN_CHANGE_ME';
 
-    // Verify recovery token
+     // Verify recovery token
     if (!recoveryToken || recoveryToken !== validRecoveryToken) {
       // Log failed attempt
       await logAudit({
