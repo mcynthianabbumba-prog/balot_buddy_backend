@@ -68,6 +68,7 @@ exports.getBallot = async (req, res) => {
       timestamp: now.getTime(),
     });
     
+    
     // First, get ALL positions to debug
     const allPositions = await prisma.position.findMany({
       orderBy: {
