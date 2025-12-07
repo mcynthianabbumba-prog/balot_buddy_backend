@@ -68,8 +68,7 @@ exports.getBallot = async (req, res) => {
       timestamp: now.getTime(),
     });
     
-    
-    // First, get ALL positions to debug
+      // First, get ALL positions to debug
     const allPositions = await prisma.position.findMany({
       orderBy: {
         name: 'asc',
@@ -94,6 +93,7 @@ exports.getBallot = async (req, res) => {
       console.log(`  Comparison: ${nowTime} >= ${opensTime} && ${nowTime} <= ${closesTime}`);
       console.log(`  Is Open: ${isOpen}`);
     });
+  
     
     // Use Prisma query to filter positions where voting window is currently open
     // This ensures database-level filtering with consistent timezone handling
